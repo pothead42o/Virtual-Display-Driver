@@ -1,3 +1,5 @@
+# THIS IS A DEVELOPMENT BRANCH. THIS BRANCH MAY BE UNSTABLE AND CAUSE ISSUES. WE ARE NOT LIABLE FOR ANY ISSUES IF YOU CHOOSE TO ATTEMPT TO BUILD THIS BRANCH
+
 # Virtual Display Driver
 based on Microsoft Indirect Display Driver Sample. This creates a virtual display in Windows that acts and functions just like a real one. It's useful for streaming, virtual reality applications, recording, headless servers, etc. The benefit over a physical display is the ability to adjust resolutions and refresh rates beyond the physical displays capabilities. For example, this would enable the ability to stream a game from your home PC using game streaming software at 240hz at 8K while owning a 60hz 1080p monitor (unrealistic, but explains the abilities well). For servers without displays, this enabled remote desktop and screen streaming to other systems as if there were a display installed. 
 
