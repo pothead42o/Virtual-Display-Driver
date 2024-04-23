@@ -24,8 +24,6 @@ Environment:
 #include<vector>
 // jocke added for comming dynamic edid loading
 #include <iostream>
-#include <array>
-#include <algorithm>
 
 using namespace std;
 using namespace Microsoft::IndirectDisp;
@@ -118,62 +116,7 @@ vector<string> split(string& input, char delimiter)
 	}
 	return result;
 }
-// jocke added for comming dynamix edid loading
-using BYTE = uint8_t; // Alias for uint8_t
 
-std::vector<BYTE> loadedid(const std::string& filename) {
-	std::ifstream file(filename, std::ios::binary);
-	if (file.is_open()) {
-		// Read file into vector
-		std::vector<BYTE> bytes(std::istreambuf_iterator<char>(file), {});
-
-		// Modify bytes at positions 8, 9, 10, and 11
-		bytes[8] = 0x36;
-		bytes[9] = 0x94;
-		bytes[10] = 0x37;
-		bytes[11] = 0x13;
-
-		// Calculate checksum
-		int checksum = 0;
-		for (int i = 0; i < 128; ++i) {
-			checksum += bytes[i];
-		}
-		checksum %= 256;
-		uint8_t bytesum = static_cast<BYTE>(checksum);
-		bytes[128] = bytesum; // Store checksum as a byte, all byte number might be off by 1 (don't knwo how c++ handles array/vector position 0, if it's resereved or filed with data
-		
-		return bytes;
-	}
-	else {
-		std::ifstream filedef("default.bin", std::ios::binary);
-		if (filedef.is_open()) {
-			// Read file into vector this is our pre patched default edid
-			std::vector<BYTE> bytes(std::istreambuf_iterator<char>(filedef), {});
-			return bytes;
-		}
-		else { // if all fiels are gone from install folder then use our minimal hardcoded edid
-			string incode = " {\
-					0x00,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0x00,0x36,0x94,0x37,0x13,0x00,0x00,0x00,0x00,\
-					0x05,0x16,0x01,0x03,0x6D,0x32,0x1C,0x78,0xEA,0x5E,0xC0,0xA4,0x59,0x4A,0x98,0x25,\
-					0x20,0x50,0x54,0x00,0x00,0x00,0xD1,0xC0,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,\
-					0x01,0x01,0x01,0x01,0x01,0x01,0x02,0x3A,0x80,0x18,0x71,0x38,0x2D,0x40,0x58,0x2C,\
-					0x45,0x00,0xF4,0x19,0x11,0x00,0x00,0x1E,0x00,0x00,0x00,0xFF,0x00,0x4D,0x54,0x54,\
-					0x31,0x33,0x33,0x37,0x20,0x20,0x20,0x20,0x20,0x20,0x00,0x00,0x00,0xFD,0x00,0x3B,\
-					0x3D,0x42,0x44,0x0F,0x00,0x0A,0x20,0x20,0x20,0x20,0x20,0x20,0x00,0x00,0x00,0xFC,\
-					0x00,0x4D,0x54,0x54,0x31,0x33,0x33,0x37,0x0A,0x20,0x20,0x20,0x20,0x20,0x00,0x83}";
-
-			std::vector<BYTE> bytes(incode.begin(), incode.end());
-			return (bytes);
-		}
-	}
-}
-
-void dynedidmem(const std::vector<BYTE>&fileBytes, BYTE * array) {
-	// Assuming 'fileBytes' contains the binary data
-	for (std::size_t i = 0; i < fileBytes.size(); ++i) {
-		array[i] = fileBytes[i];
-	}
-}
 
 void loadOptions(string filepath) {
 	ifstream ifs(filepath);
@@ -488,17 +431,54 @@ constexpr DISPLAYCONFIG_VIDEO_SIGNAL_INFO dispinfo(UINT32 h, UINT32 v, UINT32 r)
 	DISPLAYCONFIG_SCANLINE_ORDERING_PROGRESSIVE
 	};
 }
+std::vector<BYTE> s_knownMonitorEdidData = {};
+
+// Jocke, createing a 512 byte array filled with 0 values (largest edid bin without breaking standards)
+
+static void edidLoad(const std::string& filename) {
+	std::ifstream file(filename, std::ios::binary);
+	if (file.is_open()) {
+		// Read file into vector
+		s_knownMonitorEdidData(std::istreambuf_iterator<char>(file), {});
+
+		// Modify bytes at positions 8, 9, 10, and 11
+		s_knownMonitorEdidData[8] = 0x36;
+		s_knownMonitorEdidData[9] = 0x94;
+		s_knownMonitorEdidData[10] = 0x37;
+		s_knownMonitorEdidData[11] = 0x13;
+
+		// Calculate checksum
+		int checksum = 0;
+		for (int i = 0; i < 128; ++i) {
+			checksum += s_knownMonitorEdidData[i];
+		}
+		checksum %= 256;
+		uint8_t bytesum = static_cast<BYTE>(checksum);
+		s_knownMonitorEdidData[127] = bytesum; // Store checksum as a byte, all byte number might be off by 1 (don't knwo how c++ handles array/vector position 0, if it's resereved or filed with data
+	}
+	else {
+		std::ifstream filedef("default.bin", std::ios::binary);
+		if (filedef.is_open()) {
+			// Read file into vector this is our pre patched default edid
+			s_knownMonitorEdidData(std::istreambuf_iterator<char>(filedef), {});
+		}
+		else { // if all fiels are gone from install folder then use our minimal hardcoded edid
+			string incode = " {\
+			                0x00,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0x00,0x36,0x94,0x37,0x13,0x00,0x00,0x00,0x00,\
+			                0x05,0x16,0x01,0x03,0x6D,0x32,0x1C,0x78,0xEA,0x5E,0xC0,0xA4,0x59,0x4A,0x98,0x25,\
+			                0x20,0x50,0x54,0x00,0x00,0x00,0xD1,0xC0,0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,\
+			                0x01,0x01,0x01,0x01,0x01,0x01,0x02,0x3A,0x80,0x18,0x71,0x38,0x2D,0x40,0x58,0x2C,\
+			                0x45,0x00,0xF4,0x19,0x11,0x00,0x00,0x1E,0x00,0x00,0x00,0xFF,0x00,0x4D,0x54,0x54,\
+			                0x31,0x33,0x33,0x37,0x20,0x20,0x20,0x20,0x20,0x20,0x00,0x00,0x00,0xFD,0x00,0x3B,\
+			                0x3D,0x42,0x44,0x0F,0x00,0x0A,0x20,0x20,0x20,0x20,0x20,0x20,0x00,0x00,0x00,0xFC,\
+			                0x00,0x4D,0x54,0x54,0x31,0x33,0x33,0x37,0x0A,0x20,0x20,0x20,0x20,0x20,0x00,0x83}";
+
+			s_knownMonitorEdidData(incode.begin(), incode.end());
+		}
+	}
+};
 
 
-// Jocke, the plan was away with [] and = loadedid(private.edid)
-//const BYTE IndirectDeviceContext::s_KnownMonitorEdid = loadedid("user_edid.bin"); didn't work, something about const dec�ared in driver.h
-
-std::vector<BYTE> loade(loadedid("user_edid.bin"));
-
-std::array<BYTE, 1024> tempArray;
-dynedidmem(loade, tempArray.data());
-
-std::copy(tempArray.begin(), tempArray.end(), const_cast<BYTE*>(IndirectDeviceContext::s_KnownMonitorEdid));
 // This is a sample monitor EDID - FOR SAMPLE PURPOSES ONLY
 /*
 const BYTE IndirectDeviceContext::s_KnownMonitorEdid[] = {
@@ -626,8 +606,8 @@ void IndirectDeviceContext::CreateMonitor(unsigned int index) {
 	MonitorInfo.ConnectorIndex = index;
 	MonitorInfo.MonitorDescription.Size = sizeof(MonitorInfo.MonitorDescription);
 	MonitorInfo.MonitorDescription.Type = IDDCX_MONITOR_DESCRIPTION_TYPE_EDID;
-	MonitorInfo.MonitorDescription.DataSize = sizeof(s_KnownMonitorEdid);
-	MonitorInfo.MonitorDescription.pData = const_cast<BYTE*>(s_KnownMonitorEdid);
+	MonitorInfo.MonitorDescription.DataSize = sizeof(s_knownMonitorEdidData);
+	MonitorInfo.MonitorDescription.pData = s_knownMonitorEdidData.data();
 
 	// ==============================
 	// TODO: The monitor's container ID should be distinct from "this" device's container ID if the monitor is not
