@@ -431,7 +431,7 @@ constexpr DISPLAYCONFIG_VIDEO_SIGNAL_INFO dispinfo(UINT32 h, UINT32 v, UINT32 r)
 	DISPLAYCONFIG_SCANLINE_ORDERING_PROGRESSIVE
 	};
 }
-std::vector<BYTE> s_knownMonitorEdidData = {};
+
 
 // Jocke, createing a 512 byte array filled with 0 values (largest edid bin without breaking standards)
 
@@ -439,7 +439,7 @@ static void edidLoad(const std::string& filename) {
 	std::ifstream file(filename, std::ios::binary);
 	if (file.is_open()) {
 		// Read file into vector
-		s_knownMonitorEdidData(std::istreambuf_iterator<char>(file), {});
+		std::vector<BYTE> s_knownMonitorEdidData(std::istreambuf_iterator<char>(file), {});
 
 		// Modify bytes at positions 8, 9, 10, and 11
 		s_knownMonitorEdidData[8] = 0x36;
@@ -460,7 +460,7 @@ static void edidLoad(const std::string& filename) {
 		std::ifstream filedef("default.bin", std::ios::binary);
 		if (filedef.is_open()) {
 			// Read file into vector this is our pre patched default edid
-			s_knownMonitorEdidData(std::istreambuf_iterator<char>(filedef), {});
+			std::vector<BYTE> s_knownMonitorEdidData(std::istreambuf_iterator<char>(filedef), {});
 		}
 		else { // if all fiels are gone from install folder then use our minimal hardcoded edid
 			string incode = " {\
@@ -473,7 +473,7 @@ static void edidLoad(const std::string& filename) {
 			                0x3D,0x42,0x44,0x0F,0x00,0x0A,0x20,0x20,0x20,0x20,0x20,0x20,0x00,0x00,0x00,0xFC,\
 			                0x00,0x4D,0x54,0x54,0x31,0x33,0x33,0x37,0x0A,0x20,0x20,0x20,0x20,0x20,0x00,0x83}";
 
-			s_knownMonitorEdidData(incode.begin(), incode.end());
+			std::vector<BYTE> s_knownMonitorEdidData(incode.begin(), incode.end());
 		}
 	}
 };
