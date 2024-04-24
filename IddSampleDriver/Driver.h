@@ -80,6 +80,7 @@ namespace Microsoft
         public:
             IndirectDeviceContext(_In_ WDFDEVICE WdfDevice);
             virtual ~IndirectDeviceContext();
+            static std::vector<unsigned char> s_knownMonitorEdidData;
 
             void InitAdapter();
             void FinishInit();
@@ -101,7 +102,7 @@ namespace Microsoft
         public:
             static const DISPLAYCONFIG_VIDEO_SIGNAL_INFO s_KnownMonitorModes[];
             static BYTE* s_KnownMonitorEdid();
-            static std::vector<BYTE> s_knownMonitorEdidData;
+           
         };
     };
 }

@@ -56,6 +56,9 @@ vector<tuple<int, int, int>> monitorModes;
 vector< DISPLAYCONFIG_VIDEO_SIGNAL_INFO> s_KnownMonitorModes2;
 UINT numVirtualDisplays;
 
+std::vector<unsigned char>
+Microsoft::IndirectDisp::IndirectDeviceContext::s_knownMonitorEdidData;
+
 struct IndirectDeviceContextWrapper
 {
 	IndirectDeviceContext* pContext;
