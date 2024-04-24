@@ -254,6 +254,8 @@ HRESULT Direct3DDevice::Init()
 		return hr;
 	}
 
+// Bud was here - I believe this line above can allow us to select a certain gpu so before last d3d device. call if failed again in sequence
+
 	return S_OK;
 }
 
