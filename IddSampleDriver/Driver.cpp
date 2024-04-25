@@ -56,6 +56,7 @@ vector<tuple<int, int, int>> monitorModes;
 vector< DISPLAYCONFIG_VIDEO_SIGNAL_INFO> s_KnownMonitorModes2;
 UINT numVirtualDisplays;
 
+
 std::vector<unsigned char>
 Microsoft::IndirectDisp::IndirectDeviceContext::s_knownMonitorEdidData;
 
@@ -438,17 +439,24 @@ constexpr DISPLAYCONFIG_VIDEO_SIGNAL_INFO dispinfo(UINT32 h, UINT32 v, UINT32 r)
 
 // Jocke, createing a 512 byte array filled with 0 values (largest edid bin without breaking standards)
 
+std::vector<BYTE> s_knownMonitorEdidData;
+
 static void edidLoad(const std::string& filename) {
+	std::wofstream logFile("C:\\IddSampleDriver\\lddlog.txt", std::ios::app);
+	logFile << L"Entered EDIDLoad" << std::endl;
+
 	std::ifstream file(filename, std::ios::binary);
 	if (file.is_open()) {
+		logFile << L"Filename found for custom edid" << std::endl;
 		// Read file into vector
-		std::vector<BYTE> s_knownMonitorEdidData(std::istreambuf_iterator<char>(file), {});
-
+		s_knownMonitorEdidData = std::vector<BYTE>(std::istreambuf_iterator<char>(file), {});
+		logFile << L"Replacing edid data in custom bin" << std::endl;
 		// Modify bytes at positions 8, 9, 10, and 11
 		s_knownMonitorEdidData[8] = 0x36;
 		s_knownMonitorEdidData[9] = 0x94;
 		s_knownMonitorEdidData[10] = 0x37;
 		s_knownMonitorEdidData[11] = 0x13;
+		logFile << L"calculating new checksum" << std::endl;
 
 		// Calculate checksum
 		int checksum = 0;
@@ -458,14 +466,18 @@ static void edidLoad(const std::string& filename) {
 		checksum %= 256;
 		uint8_t bytesum = static_cast<BYTE>(checksum);
 		s_knownMonitorEdidData[127] = bytesum; // Store checksum as a byte, all byte number might be off by 1 (don't knwo how c++ handles array/vector position 0, if it's resereved or filed with data
+		logFile << L"Checksum calculated and placed on last byte of edid data" << std::endl;
 	}
 	else {
+		logFile << L"CustomEdid not found, checking default" << std::endl;
 		std::ifstream filedef("default.bin", std::ios::binary);
 		if (filedef.is_open()) {
 			// Read file into vector this is our pre patched default edid
-			std::vector<BYTE> s_knownMonitorEdidData(std::istreambuf_iterator<char>(filedef), {});
+			s_knownMonitorEdidData = std::vector<BYTE>(std::istreambuf_iterator<char>(filedef), {});
+			logFile << L"Default.bin loaded into edid data" << std::endl;
 		}
-		else { // if all fiels are gone from install folder then use our minimal hardcoded edid
+		else { // if all files are gone from install folder then use our minimal hardcoded edid
+			logFile << L"Defaulting to hardcoded edid" << std::endl;
 			string incode = " {\
 			                0x00,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0x00,0x36,0x94,0x37,0x13,0x00,0x00,0x00,0x00,\
 			                0x05,0x16,0x01,0x03,0x6D,0x32,0x1C,0x78,0xEA,0x5E,0xC0,0xA4,0x59,0x4A,0x98,0x25,\
@@ -476,9 +488,12 @@ static void edidLoad(const std::string& filename) {
 			                0x3D,0x42,0x44,0x0F,0x00,0x0A,0x20,0x20,0x20,0x20,0x20,0x20,0x00,0x00,0x00,0xFC,\
 			                0x00,0x4D,0x54,0x54,0x31,0x33,0x33,0x37,0x0A,0x20,0x20,0x20,0x20,0x20,0x00,0x83}";
 
-			std::vector<BYTE> s_knownMonitorEdidData(incode.begin(), incode.end());
+			s_knownMonitorEdidData = std::vector<BYTE>(incode.begin(), incode.end());
 		}
 	}
+	logFile << L"Exiting EDID Load and closing log" << std::endl;
+	logFile.close();
+
 };
 
 
@@ -513,6 +528,10 @@ const BYTE IndirectDeviceContext::s_KnownMonitorEdid[] = {
 };
 */
 
+
+
+
+
 IndirectDeviceContext::IndirectDeviceContext(_In_ WDFDEVICE WdfDevice) :
 	m_WdfDevice(WdfDevice)
 {
@@ -528,6 +547,7 @@ IndirectDeviceContext::~IndirectDeviceContext()
 
 void IndirectDeviceContext::InitAdapter()
 {
+	edidLoad("C:\\IddSampleDriver\\user_edid.bin");
 	// ==============================
 	// TODO: Update the below diagnostic information in accordance with the target hardware. The strings and version
 	// numbers are used for telemetry and may be displayed to the user in some situations.
@@ -591,6 +611,7 @@ void IndirectDeviceContext::FinishInit()
 	}
 }
 
+
 void IndirectDeviceContext::CreateMonitor(unsigned int index) {
 	// ==============================
 	// TODO: In a real driver, the EDID should be retrieved dynamically from a connected physical monitor. The EDID
@@ -599,11 +620,16 @@ void IndirectDeviceContext::CreateMonitor(unsigned int index) {
 	// settings like viewing distance and scale factor. Manufacturers should also use a unique serial number every
 	// single device to ensure the OS can tell the monitors apart.
 	// ==============================
+	std::wofstream logFile("C:\\IddSampleDriver\\lddlog.txt", std::ios::app);
+
+	logFile << L"Creating a monitor start at "  << std::endl;
 
 	WDF_OBJECT_ATTRIBUTES Attr;
 	WDF_OBJECT_ATTRIBUTES_INIT_CONTEXT_TYPE(&Attr, IndirectDeviceContextWrapper);
 
-	IDDCX_MONITOR_INFO MonitorInfo = {}; // Jocke, guessing that IDDCX_MONITOR_INFO is a class, and that there we could find out if it's possible to fill s_KnownMonitorEid with a ector instead of hardcode
+	logFile << L"Initialized WDF object attributes at " << std::endl;
+
+	IDDCX_MONITOR_INFO MonitorInfo = {};
 	MonitorInfo.Size = sizeof(MonitorInfo);
 	MonitorInfo.MonitorType = DISPLAYCONFIG_OUTPUT_TECHNOLOGY_HDMI;
 	MonitorInfo.ConnectorIndex = index;
@@ -611,6 +637,7 @@ void IndirectDeviceContext::CreateMonitor(unsigned int index) {
 	MonitorInfo.MonitorDescription.Type = IDDCX_MONITOR_DESCRIPTION_TYPE_EDID;
 	MonitorInfo.MonitorDescription.DataSize = sizeof(s_knownMonitorEdidData);
 	MonitorInfo.MonitorDescription.pData = s_knownMonitorEdidData.data();
+
 
 	// ==============================
 	// TODO: The monitor's container ID should be distinct from "this" device's container ID if the monitor is not
@@ -620,29 +647,51 @@ void IndirectDeviceContext::CreateMonitor(unsigned int index) {
 	// unique monitor or to use "this" device's container ID for a permanent/integrated monitor.
 	// ==============================
 
-	// Create a container ID
+
+	logFile << L"Initialized monitor info at "  << std::endl;
+
 	CoCreateGuid(&MonitorInfo.MonitorContainerId);
+
+	logFile << L"Created container ID at "  << std::endl;
 
 	IDARG_IN_MONITORCREATE MonitorCreate = {};
 	MonitorCreate.ObjectAttributes = &Attr;
 	MonitorCreate.pMonitorInfo = &MonitorInfo;
-
-	// Create a monitor object with the specified monitor descriptor
 	IDARG_OUT_MONITORCREATE MonitorCreateOut;
 	NTSTATUS Status = IddCxMonitorCreate(m_Adapter, &MonitorCreate, &MonitorCreateOut);
+	if (!NT_SUCCESS(Status))
+	{
+		logFile << L"Failed to create monitor object. Status code: " << Status << std::endl;
+	}
 	if (NT_SUCCESS(Status))
 	{
 		m_Monitor = MonitorCreateOut.MonitorObject;
 
-		// Associate the monitor with this device context
 		auto* pContext = WdfObjectGet_IndirectDeviceContextWrapper(MonitorCreateOut.MonitorObject);
 		pContext->pContext = this;
 
-		// Tell the OS that the monitor has been plugged in
+		logFile << L"Created monitor object and associated it with this device context at " << std::endl;
+
 		IDARG_OUT_MONITORARRIVAL ArrivalOut;
 		Status = IddCxMonitorArrival(m_Monitor, &ArrivalOut);
+		if (!NT_SUCCESS(Status))
+		{
+			logFile << L"Failed to plug in monitor. Status code: " << Status << std::endl;
+		}
+		else
+		{
+			logFile << L"Monitor has been plugged in at " << std::endl;
+		}
 	}
+	else {
+		logFile << L"Weird " << std::endl;
+	}
+
+
+	logFile << L"Creating a monitor end at "  << std::endl;
+	logFile.close();
 }
+
 
 void IndirectDeviceContext::AssignSwapChain(IDDCX_SWAPCHAIN SwapChain, LUID RenderAdapter, HANDLE NewFrameEvent)   // Jocke, is it here we could assign rendering gpu?
 {

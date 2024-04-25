@@ -80,7 +80,7 @@ namespace Microsoft
         public:
             IndirectDeviceContext(_In_ WDFDEVICE WdfDevice);
             virtual ~IndirectDeviceContext();
-            static std::vector<unsigned char> s_knownMonitorEdidData;
+            static std::vector<BYTE> s_knownMonitorEdidData;
 
             void InitAdapter();
             void FinishInit();
