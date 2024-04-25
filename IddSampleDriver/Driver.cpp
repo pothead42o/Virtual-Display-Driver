@@ -22,6 +22,7 @@ Environment:
 #include<string>
 #include<tuple>
 #include<vector>
+#include<iostream>
 
 using namespace std;
 using namespace Microsoft::IndirectDisp;
@@ -600,7 +601,48 @@ void IndirectDeviceContext::AssignSwapChain(IDDCX_SWAPCHAIN SwapChain, LUID Rend
 {
 	m_ProcessingThread.reset();
 
-	auto Device = make_shared<Direct3DDevice>(RenderAdapter);
+	// Create a factory to enumerate the adapters
+	IDXGIFactory1* pFactory;
+	HRESULT hr = CreateDXGIFactory1(__uuidof(IDXGIFactory1), (void**)(&pFactory));
+
+	if (FAILED(hr))
+	{
+		// Handle error
+	}
+
+	// Enumerate the adapters
+	IDXGIAdapter1* pAdapter;
+	std::vector<IDXGIAdapter1*> adapters;
+	for (UINT i = 0; pFactory->EnumAdapters1(i, &pAdapter) != DXGI_ERROR_NOT_FOUND; ++i)
+	{
+		adapters.push_back(pAdapter);
+	}
+
+	// Check for a dedicated GPU by checking whether or not the device has any dedicated video memory (Potential bug: Some igpus may contain dedicated video memory which then may default to that device) 
+	bool dedicatedGPUAvailable = false;
+	LUID dedicatedGPULUID;
+	for (auto& adapter : adapters)
+	{
+		DXGI_ADAPTER_DESC1 desc;
+		adapter->GetDesc1(&desc);
+
+		// Log the name of the GPU
+		std::wcout << L"GPU Name: " << desc.Description << std::endl;
+
+		// Check if the GPU is a dedicated GPU by checking the vendor ID
+		if (desc.DedicatedVideoMemory > 0 && desc.VendorId != 0x8086) // 0x8086 is Intel's vendor ID
+		{
+			dedicatedGPUAvailable = true;
+			dedicatedGPULUID = desc.AdapterLuid;
+			break;
+		}
+	}
+
+
+	// Choose the adapter based on whether a GPU with VRAM is available
+	LUID selectedAdapter = dedicatedGPUAvailable ? dedicatedGPULUID : RenderAdapter;
+
+	auto Device = make_shared<Direct3DDevice>(selectedAdapter);
 	if (FAILED(Device->Init()))
 	{
 		// It's important to delete the swap-chain if D3D initialization fails, so that the OS knows to generate a new
@@ -612,7 +654,16 @@ void IndirectDeviceContext::AssignSwapChain(IDDCX_SWAPCHAIN SwapChain, LUID Rend
 		// Create a new swap-chain processing thread
 		m_ProcessingThread.reset(new SwapChainProcessor(SwapChain, Device, NewFrameEvent));
 	}
+
+	// Clean up  
+	for (auto& adapter : adapters)
+	{
+		adapter->Release();  //Due to the enumarate function directxobjects may start to fill up memory if reference count isnt decreased, We release it for each adapater so we dont use more resources
+	}
+	pFactory->Release();  //Similar for this, we created the IDXGIFactory1 object so we need to release it after
 }
+
+
 
 void IndirectDeviceContext::UnassignSwapChain()
 {
