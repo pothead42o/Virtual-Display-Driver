@@ -1,0 +1,117 @@
+using UnityEngine;
+using System.Collections.Generic;
+
+public class NuclearWarManager : MonoBehaviour
+{
+    public class City
+    {
+        public string Name;
+        public int Population;
+        public bool IsDestroyed;
+        public bool IsRadiated;
+
+        public City(string name, int population)
+        {
+            Name = name;
+            Population = population;
+            IsDestroyed = false;
+            IsRadiated = false;
+        }
+    }
+
+    public class Civilization
+    {
+        public string Name;
+        public int DiplomacyScore; // Negative means poor relations
+        public List<City> Cities;
+        public bool HasNuclearTech;
+
+        public Civilization(string name)
+        {
+            Name = name;
+            DiplomacyScore = 100; // Start with positive diplomacy
+            Cities = new List<City>();
+            HasNuclearTech = false;
+        }
+
+        public void AddCity(string name, int population)
+        {
+            Cities.Add(new City(name, population));
+        }
+    }
+
+    public List<Civilization> civilizations;
+    public int radiationDuration = 100; // Turns until radiation fades
+
+    private void Start()
+    {
+        // Example setup
+        civilizations = new List<Civilization>
+        {
+            new Civilization("Alpha") { HasNuclearTech = true },
+            new Civilization("Beta")
+        };
+
+        civilizations[0].AddCity("CityA", 100000);
+        civilizations[1].AddCity("CityB", 80000);
+    }
+
+    public void UseNuclearWeapon(Civilization attacker, City targetCity)
+    {
+        if (!attacker.HasNuclearTech)
+        {
+            Debug.Log($"{attacker.Name} does not have nuclear technology!");
+            return;
+        }
+
+        // Destroy the city
+        targetCity.IsDestroyed = true;
+        targetCity.IsRadiated = true;
+        targetCity.Population = 0;
+
+        Debug.Log($"{targetCity.Name} has been destroyed by a nuclear weapon!");
+
+        // Diplomatic consequences
+        foreach (var civ in civilizations)
+        {
+            if (civ != attacker)
+            {
+                civ.DiplomacyScore -= 50;
+                Debug.Log($"{civ.Name} has reduced diplomatic relations with {attacker.Name}!");
+            }
+        }
+
+        // Trigger war if diplomacy is too poor
+        CheckDiplomaticRelations(attacker);
+    }
+
+    private void CheckDiplomaticRelations(Civilization attacker)
+    {
+        foreach (var civ in civilizations)
+        {
+            if (civ.DiplomacyScore < -50 && civ != attacker)
+            {
+                Debug.Log($"{civ.Name} declares war on {attacker.Name} due to poor relations!");
+            }
+        }
+    }
+
+    public void NextTurn()
+    {
+        foreach (var civ in civilizations)
+        {
+            foreach (var city in civ.Cities)
+            {
+                if (city.IsRadiated)
+                {
+                    radiationDuration--;
+                    if (radiationDuration <= 0)
+                    {
+                        city.IsRadiated = false;
+                        Debug.Log($"Radiation in {city.Name} has faded. The land is usable again.");
+                    }
+                }
+            }
+        }
+    }
+}
